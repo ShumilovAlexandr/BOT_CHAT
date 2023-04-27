@@ -1,4 +1,3 @@
-# -*- coding: windows-1251 -*-
 import os
 import requests
 import datetime
@@ -18,61 +17,60 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Объект бота и передаваемый токен
+# РЎРѕР·РґР°РµРј СЌРєР·РµРјРїР»СЏСЂ Р±РѕС‚Р°
 bot = Bot(os.getenv('TOKEN'))
-# Ключ к API Openweather
+# РџРѕРґРєР»СЋС‡Р°РµРј API Openweather
 API_KEY = os.getenv('WEATHER_API')
-# Ключ к Exchange Rates Data API
+# РџРѕРґРєР»СЋС‡Р°РµРј Exchange Rates Data API
 exchange_key = os.getenv('EXCHANGE')
-# Ключ к The Cat API - Cats as a Service.
+# РџРѕРґРєР»СЋС‡Р°РµРј The Cat API - Cats as a Service.
 animal_token = os.getenv('ANIMALS')
 
-# Диспетчер для обработки сообщений, запросов и тп.
+# РћР±СЉРµРєС‚ РґРёСЃРїРµС‚С‡РµСЂР°.
 dp = Dispatcher(bot, storage=MemoryStorage())
 
 
 class DataConversion(StatesGroup):
-    # Здесь будут храниться состояния пользователя в текущий момент при конвертации
+    # Р—РґРµСЃСЊ Р±СѓРґСѓС‚ С…СЂР°РЅРёС‚СЊСЃСЏ СЃРѕСЃС‚РѕСЏРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РїСЂРё РєРѕРЅРІРµСЂС‚Р°С†РёРё РІР°Р»СЋС‚С‹.
     first_currency = State()
     second_currency = State()
     amount_currency = State()
 
 class DataWeather(StatesGroup):
-    # Здесь будут храниться состояния пользователя в текущий момент при выборе города
-    # для последующей передаче в функцию получения погоды
+    # Р—РґРµСЃСЊ Р±СѓРґСѓС‚ С…СЂР°РЅРёС‚СЊСЃСЏ СЃРѕСЃС‚РѕСЏРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РїСЂРё РІС‹Р±РѕСЂРµ РіРѕСЂРѕРґР°.
     city = State()
 
 
 @dp.message_handler(commands=['start'])
 async def start_bot(message: types.Message):
     """
-    Стартовое приветсвие и запуск бота.
+    РЎС‚Р°СЂС‚РѕРІРѕРµ РїСЂРёРІРµС‚СЃРІРёРµ Рё Р·Р°РїСѓСЃРє Р±РѕС‚Р°.
 
-    Выводит кнопку, нажав на которую бот выдает в чат приветствие и предлагает на выбор одно из 
-    действий в виде кнопок.
-    btn1: после нажатия на нее можно выбрать погоду в интересующем городе.
-    btn2: после нажатия на нее дает возможность конвертировать валюту.
-    btn3: после нажатия на нее просто присылает в чат картику животного
-    btn4: создает опрос с вариантами ответа и посылает в определенный чат.
-    markup: выводит кнопки на экран бота.
+    Р’С‹РІРѕРґРёС‚ РєРЅРѕРїРєСѓ, РЅР°Р¶Р°РІ РЅР° РєРѕС‚РѕСЂСѓСЋ Р±РѕС‚ РІС‹РґР°РµС‚ РІ С‡Р°С‚ РїСЂРёРІРµС‚СЃС‚РІРёРµ Рё РїСЂРµРґР»Р°РіР°РµС‚ РЅР° РІС‹Р±РѕСЂ РѕРґРЅРѕ РёР· 
+    РґРµР№СЃС‚РІРёР№ РІ РІРёРґРµ РєРЅРѕРїРѕРє.
+    btn1: РїРѕСЃР»Рµ РЅР°Р¶Р°С‚РёСЏ РЅР° РЅРµРµ РјРѕР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ РїРѕРіРѕРґСѓ РІ РёРЅС‚РµСЂРµСЃСѓСЋС‰РµРј РіРѕСЂРѕРґРµ.
+    btn2: РїРѕСЃР»Рµ РЅР°Р¶Р°С‚РёСЏ РЅР° РЅРµРµ РґР°РµС‚ РІРѕР·РјРѕР¶РЅРѕСЃС‚СЊ РєРѕРЅРІРµСЂС‚РёСЂРѕРІР°С‚СЊ РІР°Р»СЋС‚Сѓ.
+    btn3: РїРѕСЃР»Рµ РЅР°Р¶Р°С‚РёСЏ РЅР° РЅРµРµ РїСЂРѕСЃС‚Рѕ РїСЂРёСЃС‹Р»Р°РµС‚ РІ С‡Р°С‚ РєР°СЂС‚РёРєСѓ Р¶РёРІРѕС‚РЅРѕРіРѕ
+    btn4: СЃРѕР·РґР°РµС‚ РѕРїСЂРѕСЃ СЃ РІР°СЂРёР°РЅС‚Р°РјРё РѕС‚РІРµС‚Р° Рё РїРѕСЃС‹Р»Р°РµС‚ РІ РѕРїСЂРµРґРµР»РµРЅРЅС‹Р№ С‡Р°С‚.
+    markup: РІС‹РІРѕРґРёС‚ РєРЅРѕРїРєРё РЅР° СЌРєСЂР°РЅ Р±РѕС‚Р°.
     """
-    btn1 = InlineKeyboardButton('Покажи мне погоду в ...', 
+    btn1 = InlineKeyboardButton('РџРѕРєР°Р¶Рё РјРЅРµ РїРѕРіРѕРґСѓ РІ ...', 
                                 callback_data='btn1')
-    btn2 = InlineKeyboardButton('Мне нужно конвертировать валюту', 
+    btn2 = InlineKeyboardButton('РњРЅРµ РЅСѓР¶РЅРѕ РєРѕРЅРІРµСЂС‚РёСЂРѕРІР°С‚СЊ РІР°Р»СЋС‚Сѓ', 
                                 callback_data='btn2')
-    btn3 = InlineKeyboardButton('Пришли мне картинку животинки', 
+    btn3 = InlineKeyboardButton('РџСЂРёС€Р»Рё РјРЅРµ С„РѕС‚РѕРіСЂР°С„РёСЋ РєРѕС‚РµР№РєРё', 
                                 callback_data='btn3')
-    btn4 = InlineKeyboardButton('Я хочу создать опрос', 
+    btn4 = InlineKeyboardButton('РњРЅРµ РЅСѓР¶РЅРѕ СЃРѕР·РґР°С‚СЊ РѕРїСЂРѕСЃ', 
                                 callback_data='btn4')
     markup = InlineKeyboardMarkup(row_width=1).add(btn1, btn2, btn3, btn4)
-    await message.answer('Привет! Выбери одно из интересующих тебя действий.', 
+    await message.answer('РџСЂРёРІРµС‚. Р’С‹Р±РµСЂРё РёРЅС‚РµСЂРµСЃСѓСЋС‰РµРµ С‚РµР±СЏ РґРµР№СЃС‚РІРёРµ.', 
                         reply_markup=markup)
 
 
 @dp.callback_query_handler(lambda callback: True)
 async def process_callback(callback: types.CallbackQuery, state: FSMContext):
     """
-    Функция обработки результатов выбора той или иной кнопки.
+    РћР±СЂР°Р±РѕС‚РєР° СЂРµР·СѓР»СЊС‚Р°С‚Р° РЅР°Р¶Р°С‚РёСЏ С‚РѕР№ РёР»Рё РёРЅРѕР№ РєРЅРѕРїРєРё.
     """
     match callback.data:
         case 'btn1':
@@ -85,68 +83,68 @@ async def process_callback(callback: types.CallbackQuery, state: FSMContext):
             await create_poll(callback.message)
 
 
-# Функционал, отвечающий за прогноз погоды.
+# Р¤СѓРЅРєС†РёРѕРЅР°Р» РїРѕР»СѓС‡РµРЅРёСЏ РїСЂРѕРіРЅРѕР·Р° РїРѕРіРѕРґС‹.
 @dp.message_handler()
 async def get_city(message: types.Message, state: FSMContext):
     await bot.send_message(message.chat.id, 
-                           "Введите название города, в котором хотите узнать погоду: ")
+                           "Р’РІРµРґРёС‚Рµ РЅР°Р·РІР°РЅРёРµ РіРѕСЂРѕРґР°, РІ РєРѕС‚РѕСЂРѕРј С…РѕС‚РёС‚Рµ СѓР·РЅР°С‚СЊ РїРѕРіРѕРґСѓ: ")
     await state.set_state(DataWeather.city)
 
 @dp.message_handler(state=DataWeather.city)
 async def get_weather(message: types.Message, state: FSMContext):
-    """Функция отвечает за получение прогноза погоды в интересующем городе."""
+    """Р¤СѓРЅРєРёСЏ РѕС‚РІРµС‡Р°СЋС‰Р°СЏ Р·Р° РїРѕРґРєР»СЋС‡РµРЅРёРµ Рє API Рё РїРѕР»СѓС‡РµРЅРёРµ СЂРµР·СѓР»СЊС‚Р°С‚Р°."""
     try:
          city_name = message.text
          await state.update_data(city=city_name)
-         # Запрос к API Openweathermap
+         # РћРїСЂР°РІР»СЏРµРј Р·Р°РїСЂРѕСЃ Рє API Openweathermap
          request = requests.get(f'https://api.openweathermap.org/data/2.5/weather?q={message.text}&appid={API_KEY}&units=metric&lang=ru')
          response = request.json()
-         # Интересующие параметры в ответе
-         date = datetime.datetime.now().strftime('%d.%m.%y г. %H:%M')
+         # РџРѕР»СѓС‡Р°РµРј РёРЅС‚РµСЂРµСЃСѓСЋС‰РёРµ РЅР°СЃ РґР°РЅРЅС‹Рµ.
+         date = datetime.datetime.now().strftime('%d.%m.%y ГЈ. %H:%M')
          town = response['name']
          current_temp = response['main']['temp']
          humidity = response['main']['humidity']
          pressure = response['main']['pressure']
          wind_speed = response['wind']['speed']
-         res = f"Текущая дата в городе {town}: {date} \n \U0001F3D9  Текущая погода в городе {town} :\n  \U0001F321  Температура: {current_temp} °C,\n  \U0001F4A7 Влажность: {humidity} %,\n  \U0001F300  Давление: {pressure} мм.рт.ст, \n \U0001F32C  Скорость ветра {wind_speed} м/с"
+         res = f"РўРµРєСѓС‰Р°СЏ РїРѕРіРѕРґР° РІ {town}: {date} \n \U0001F3D9  Р’С‹ РІС‹Р±СЂР°Р»Рё РіРѕСЂРѕРґ {town} :\n  \U0001F321  РўРµРјРїРµСЂР°С‚СѓСЂР° РІРѕР·РґСѓС…Р°: {current_temp} В°C,\n  \U0001F4A7 Р’Р»Р°Р¶РЅРѕСЃС‚СЊ: {humidity} %,\n  \U0001F300  Р”Р°РІР»РµРЅРёРµ: {pressure} РјРј.СЂС‚.СЃС‚, \n \U0001F32C  РЎРєРѕСЂРѕСЃС‚СЊ РІРµС‚СЂР° {wind_speed} Рј/СЃ"
          await bot.send_message(message.chat.id, res)
          await state.finish()
          
-    # Обработка исключения в случае некорректного ввода данных
+    # РћС‚Р»Р°РІР»РёРІР°РµРј РёСЃРєР»СЋС‡Р°РЅРёРµ, РµСЃР»Рё РІРІРµРґРµРЅ РЅРµСЃСѓС‰РµСЃС‚РІСѓСЋС‰РёР№ РіРѕСЂРѕРґ
     except:
-        await bot.send_message(message.chat.id,'Ошибка в названии города, либо такого города не существует.')
+        await bot.send_message(message.chat.id,'РџСЂРѕРІРµСЂСЊС‚Рµ РїСЂР°РІРёР»СЊРЅРѕСЃС‚СЊ РЅР°Р·РІР°РЅРёСЏ РІРІРµРґРµРЅРѕРіРѕ РіРѕСЂРѕРґР°.')
 
 
-# Далее функционал, отвечающий за конвертацию валюты.
+# Р¤СѓРЅРєС†РёРѕРЅР°Р» РѕС‚РІРµС‡Р°СЋС‰РёР№ Р·Р° РєРѕРЅРІРµСЂС‚Р°С†РёСЋ.
 @dp.message_handler()
 async def check_currency_1(message: types.Message, state: FSMContext):
-    """Хендлер для ввода валюты которую нужно конвертировать."""
+    """РЈРєР°Р·Р°РЅРёРµ РєСѓСЂСЃР° РІР°Р»СЋС‚С‹, РёР· РєРѕС‚РѕСЂРѕРіРѕ РЅСѓР¶РЅРѕ РєРѕРЅРІРµСЂС‚РёСЂРѕРІР°С‚СЊ."""
     await bot.send_message(message.chat.id, 
-                           "Укажите на английском языке трехбуквенный тикер валюты, ИЗ которой хотите конвертировать: ")
+                           "РЈРєР°Р¶РёС‚Рµ 3С… СЃРёРјРІРѕР»СЊРЅС‹Р№ С‚РёРєРµСЂ РІР°Р»СЋС‚С‹ (РЅР° Р°РЅРіР»РёР№СЃРєРѕРј СЏР·С‹РєРµ), РР— РєРѕС‚РѕСЂРѕРіРѕ РЅСѓР¶РЅРѕ РєРѕРЅРІРµСЂС‚РёСЂРѕРІР°С‚СЊ РІР°Р»СЋС‚Сѓ: ")
     await state.set_state(DataConversion.first_currency)
 
 @dp.message_handler(state=DataConversion.first_currency)
 async def check_currency_2(message: types.Message, state: FSMContext):
-    """Хендлер для ввода валюты в которую нужно конвертировать."""
-    # Сохраняем состояние из прошлого хендлера, где вводили валюту из которой конвертируем.
+    """РЈРєР°Р·Р°РЅРёРµ РєСѓСЂСЃР° РІР°Р»СЋС‚С‹, РІ РєРѕС‚РѕСЂСѓСЋ РЅСѓР¶РЅРѕ РєРѕРЅРІРµСЂС‚РёСЂРѕРІР°С‚СЊ."""
+    # Р’ first_cur СЃРѕС…СЂР°РЅСЏРµРј СЂРµР·СѓР»СЊС‚Р°С‚ РїСЂРѕС€Р»РѕРіРѕ РІС‹Р±РѕСЂР° РІР°Р»СЋС‚С‹.
     first_cur = message.text
     await state.update_data(first_currency=first_cur)
     await bot.send_message(message.chat.id, 
-                           "Укажите на английском языке трехбуквенный тикер валюты, В которую хотите конвертировать: ")
+                           "РЈРєР°Р¶РёС‚Рµ 3С… СЃРёРјРІРѕР»СЊРЅС‹Р№ С‚РёРєРµСЂ РІР°Р»СЋС‚С‹ (РЅР° Р°РЅРіР»РёР№СЃРєРѕРј СЏР·С‹РєРµ), Р’ РєРѕС‚РѕСЂС‹Р№ РЅСѓР¶РЅРѕ РєРѕРЅРІРµСЂС‚РёСЂРѕРІР°С‚СЊ РІР°Р»СЋС‚Сѓ: ")
     await state.set_state(DataConversion.second_currency)
 
 @dp.message_handler(state=DataConversion.second_currency)
 async def check_amount(message: types.Message, state: FSMContext):
-    """Хендлер для ввода количества валюты которую нужно конвертировать."""
-    # Сохраняем состояние из прошлого хендлера, где вводили валюту в которую конвертируем.
+    """РЈРєР°Р·С‹РІР°РµРј РєРѕР»РёС‡РµСЃС‚РІРѕ РІР°Р»СЋС‚С‹ Рє РєРѕРЅРІРµСЂС‚Р°С†РёРё."""
+    # Р’ first_cur СЃРѕС…СЂР°РЅСЏРµРј СЂРµР·СѓР»СЊС‚Р°С‚ РІС‚РѕСЂРѕРіРѕ РІС‹Р±РѕСЂР° РІР°Р»СЋС‚С‹.
     second_cur = message.text
     await state.update_data(second_currency=second_cur)
     await bot.send_message(message.chat.id, 
-                                   "Укажите необходимое количество валюты: ")
+                                   "РЈРєР°Р¶РёС‚Рµ, СЃРєРѕР»СЊРєРѕ РІР°Р»СЋС‚С‹ Р’С‹ Р±С‹ С…РѕС‚РµР»Рё РєРѕРЅРІРµСЂС‚РёСЂРѕРІР°С‚СЊ: ")
     await state.set_state(DataConversion.amount_currency)
 
 async def get_connection(state: FSMContext):
-    """Функция для установки соединения."""
+    """РџРѕРґРєР»СЋС‡Р°РµРјСЃСЏ Рє API Рё РѕС‚РїСЂР°РІР»СЏРµРј Р·Р°РїСЂРѕСЃ."""
     try:
         data = await state.get_data()
         first_cur = data.get('first_currency')
@@ -155,7 +153,7 @@ async def get_connection(state: FSMContext):
         if first_cur and second_cur and amount_cur:
             link = f"https://api.apilayer.com/exchangerates_data/convert?to={second_cur}&from={first_cur}&amount={amount_cur}&api_key={exchange_key}"
 
-            # Передаваемые в запросе заголовки, в данном случае - ключ API
+            # РЎРѕС…СЂР°РЅСЏРµРј Р·Р°РіРѕР»РѕРІРєРё, РєРѕС‚РѕСЂС‹Рµ РЅСѓР¶РЅС‹ РґР»СЏ РїРѕРґРєР»СЋС‡РµРЅРёСЏ Рє API
             header = {
                 "apikey": exchange_key
             }
@@ -163,39 +161,39 @@ async def get_connection(state: FSMContext):
             res = resp.json()
             return res
         else:
-            print('Ошибка в аргументах!')
+            print('РћС€РёР±РєР° РІ Р°СЂРіСѓРјРµРЅС‚Р°С…!')
     except:
-        print("Ошибка в запросе к API!")
+        print("РћС€РёР±РєР° РІ РїРѕРґРєР»СЋС‡РµРЅРёРё Рє API!")
 
 @dp.message_handler(state=DataConversion.amount_currency)
 async def get_result(message: types.Message, state: FSMContext):
-    """Здесь выводится собственно говоря вся информация о конвертируемой валюте."""
-    # Сохраняем состояние из прошлого хендлера, где вводили количество валюты.
+    """Р¤СѓРЅРєС†РёСЏ РѕС‚РІРµС‡Р°РµС‚ Р·Р° РІС‹РІРѕРґ СЂРµР·СѓР»СЊС‚Р°С‚Р° РєРѕРЅРІРµСЂС‚Р°С†РёРё."""
+    # Р’ amount_cur СЃРѕС…СЂР°РЅСЏРµРј СЂРµР·СѓР»СЊС‚Р°С‚ СѓРєР°Р·Р°РЅРёСЏ РєРѕР»РёС‡РµСЃС‚РІР° РІР°Р»СЋС‚С‹.
     amount_cur = message.text
     await state.update_data(amount_currency=amount_cur)
     conn = await get_connection(state=state)
-    date = datetime.datetime.now().strftime('%d.%m.%y г. %H:%M')
-    # Тут в переменные сохраняем получаемые из запроса в get_connection данные
+    date = datetime.datetime.now().strftime('%d.%m.%y ГЈ. %H:%M')
+    # РџРѕР»СѓС‡Р°РµРј РёРЅС‚РµСЂРµСЃСѓСЋС‰РёРµ СЂРµР·СѓР»СЊС‚Р°С‚С‹
     first_cur = conn['query']['from']
     second_cur = conn['query']['to']
     amount = conn['query']['amount']
     total = conn['result']
-    # Выводим результат работы
-    msg = str(f"Текущая дата и время: {date} \U0001F4C5 \n Валюта, ИЗ которой нужно конвертировать: {first_cur} \U0001F3E6 \n Валюта, В которую нужно конвертировать: {second_cur} \U0001F3E6 \n Количество денежных единиц к конвертации: {amount} \U0001F51F \n Количество {second_cur} при конвертации {amount} {first_cur} в {second_cur} по текущему курсу составляет {total} \U00002705")
+    # Г‚Г»ГўГ®Г¤ГЁГ¬ Г°ГҐГ§ГіГ«ГјГІГ ГІ Г°Г ГЎГ®ГІГ»
+    msg = str(f"РўРµРєСѓС‰Р°СЏ РґР°С‚Р°: {date} \U0001F4C5 \n Р’Р°Р»СЋС‚Р°, РР— РєРѕС‚РѕСЂРѕР№ Р’С‹ С…РѕС‚РёС‚Рµ РєРѕРЅРІРµСЂС‚РёСЂРѕРІР°С‚СЊ: {first_cur} \U0001F3E6 \n Р’Р°Р»СЋС‚Р°, РІ РєРѕС‚РѕСЂРѕР№ Р’С‹ Р±С‹ С…РѕС‚РµР»Рё РїРѕР»СѓС‡РёС‚СЊ СЂРµР·СѓР»СЊС‚Р°С‚: {second_cur} \U0001F3E6 \n РљРѕР»РёС‡РµСЃС‚РІРѕ РІР°Р»СЋС‚С‹ Рє РєРѕРЅРІРµСЂС‚Р°С†РёРё: {amount} \U0001F51F \n РљРѕР»РёС‡РµСЃС‚РІРѕ {second_cur} РєРѕС‚РѕСЂРѕРµ РїРѕР»СѓС‡Р°РµС‚СЃСЏ РїСЂРё РєРѕРЅРІРµСЂС‚Р°С†РёРё {amount} {first_cur} РІ {second_cur} СЃРѕСЃС‚Р°РІР»СЏРµС‚ {total} \U00002705")
     await bot.send_message(message.chat.id, msg)
     await state.finish()
 
 
-# Далее функционал, отвечающий за получение картинок.
+# Р¤СѓРЅРєС†РёРѕРЅР°Р» РѕС‚РІРµС‡Р°СЋС‰РёР№ Р·Р° РїРѕР»СѓС‡РµРЅРёРµ С„РѕС‚Рѕ
 async def get_photo():
-    """Получение ссылки на картинки с животными."""
+    """РџРѕРґРєР»СЋС‡Р°РµРјСЃСЏ Рє API."""
     try:
         link = f'https://api.thecatapi.com/v1/images/search?limit=1&api_key={animal_token}'
         request = requests.get(link)
         res = request.json()
         pict = res[0]['url']
     except:
-        print("Ошибка в запросе к API!")
+        print("РћС€РёР±РєР° РїРѕРґРєР»СЋС‡РµРЅРёСЏ Рє API!")
     return pict
 
 @dp.message_handler()
@@ -204,14 +202,15 @@ async def send_cat(message: types.Message):
                          photo=await get_photo())
 
 
-# Функционал, отвечающий за создание опроса и отправку его в групповой чат
+# Р¤СѓРЅРєС†РёРѕРЅР°Р» РѕС‚РІРµС‡Р°СЋС‰РёР№ Р·Р° СЃРѕР·РґР°РЅРёРµ РѕРїСЂРѕСЃР°
 @dp.message_handler()
 async def create_poll(message: types.Message):
-    # Здесь нужно передавать список вариантов ответов
-    options = ["Вариант 1", "Вариант 2", "Вариант 3"]
-    # Здесь создаем объект опроса
+    # Р’Р°СЂРёР°РЅС‚С‹ РѕС‚РІРµС‚РѕРІ
+    options = ["Р’Р°СЂРёР°РЅС‚ 1", "Р’Р°СЂРёР°РЅС‚ 2", "Р’Р°СЂРёР°РЅС‚ 3"]
+    # РЎРѕР·РґР°РµРј СЃР°Рј РѕРїСЂРѕСЃ СЃ РІР°СЂРёР°РЅС‚Р°РјРё РѕС‚РІРµС‚РѕРІ
     poll = types.Poll(
-    question = "Выбери понравившийся вариант ответа",
+    # question - С‚СѓС‚ РЅСѓР¶РЅРѕ СѓРєР°Р·Р°С‚СЊ РІРѕРїСЂРѕСЃ РІ РѕРїСЂРѕСЃРµ
+    question = "Р’С‹Р±РµСЂРёС‚Рµ РїРѕРЅСЂР°РІРёРІС€РёР№СЃСЏ РѕС‚РІРµС‚",
     options = options,
     is_anonymous = True    
     )
